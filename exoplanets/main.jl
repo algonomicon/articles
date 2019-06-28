@@ -11,8 +11,7 @@ deletecols!(exoplanets, [:pl_def_reflink, :pl_disc_reflink, :pl_pelink, :pl_edel
 # Reference planets
 planets = DataFrame(name = ["Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune"],
                     mass = [0.0553, 0.815, 1, 0.107, 317.8, 95.2, 14.5, 17.1],
-                    radius = [0.383, 0.949, 1, 0.532, 11.21, 9.45, 4.01, 3.88],
-                    eqt = [449, 328, 279, 226, 122, 90, 64, 51])
+                    radius = [0.383, 0.949, 1, 0.532, 11.21, 9.45, 4.01, 3.88])
 
 # Statistical details of the entire dataset
 describe(exoplanets)
@@ -34,6 +33,7 @@ coordinates = unique(dropmissing(exoplanets, [:st_glon, :st_dist]), [:st_glon, :
 
 # Farthest and closest
 sorted_distance = sort(dropmissing(exoplanets, [:st_dist]), :st_dist)
+describe(sorted_distance[:st_dist])
 closest = first(sorted_distance)
 farthest = last(sorted_distance)
 
