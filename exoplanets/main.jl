@@ -83,11 +83,11 @@ plot(layer(x = [3.5], y = [0], label = ["Kepler-37 b"], Geom.point, Geom.label, 
 #draw(SVGJS("relative-size.svg", 6inch, 4inch), relativeSize)
 
 # How hot are the planets?
-temp = plot(dropmissing(exoplanets, [:pl_eqt, :pl_ratdor, :pl_insol]), x = :pl_ratdor, y = :pl_insol, color = :pl_eqt,
-     Scale.y_log10, Scale.x_log10, Scale.color_continuous(colormap = (x->get(ColorSchemes.blackbody, x))),
-     Guide.xlabel("Ratio of Distance to Star Size"),
-     Guide.ylabel("Solar Irradiance (Earth Flux)"),
-     Guide.colorkey(title = "Temp (K) "))
+temp = plot(layer(x = [1], y = [5778], color = [255], shape = [Shape.xcross], size = [3pt], label = ["Earth"], Geom.point, Geom.label, style(point_label_color = colorant"white")),
+     layer(dropmissing(exoplanets, [:pl_eqt, :st_teff, :pl_orbsmax]), x = :pl_orbsmax, y = :st_teff, color = :pl_eqt),
+     Scale.x_log10, Scale.color_continuous(colormap = (x->get(ColorSchemes.blackbody, x))),
+     Guide.xlabel("Orbital Semi Major Axis (AU)"), Guide.ylabel("Star Effective Temperature (K)"),
+     Guide.colorkey(title = "Planet Equilibrium   \nTemperature (K)  "), Guide.shapekey(pos = [10000,10000]))
 
 #draw(SVGJS("equilibrium-temperature.svg", 6inch, 4inch), temp)
 
@@ -123,14 +123,12 @@ star_size = plot(layer(x = [1], y = [1], label = ["Sun"], Geom.point, Geom.label
 
 #draw(SVGJS("star-mass-radius-scatter.svg", 6inch, 4inch), star_size)
 
-# What are their temps, colors and brightness?
-spectrals = plot(dropmissing(exoplanets, [:st_lum, :st_teff, :st_sp]), y = :st_lum, x = :st_teff, color = :st_teff,
-     Scale.x_log10,
-     Scale.color_continuous(colormap = (x->get(ColorSchemes.blackbody, x))),
-     Guide.xlabel("Effective Temperature (K)"),
-     Guide.ylabel("Luminosity (log(Solar))"),
-     style(key_position = :none),
-     Coord.cartesian(xflip = true))
+# How hot and bright are they?
+spectrals = plot(layer(x = [5777], y = [1], label = ["Sun"], color = [5777], size = [3pt], shape = [Shape.xcross], Geom.point, Geom.label(position = :above), style(point_label_color = colorant"white")),
+     layer(dropmissing(exoplanets, [:st_lum, :st_teff]), y = :st_lum, x = :st_teff, color = :st_teff),
+     Scale.x_log10, Scale.color_continuous(colormap = (x->get(ColorSchemes.blackbody, x))),
+     Guide.xlabel("Effective Temperature (K)"), Guide.ylabel("Luminosity (log(Solar))"),
+     style(key_position = :none), Coord.cartesian(xflip = true))
 
 #draw(SVGJS("star-temperature-brightness.svg", 6inch, 4inch), spectrals)
 
