@@ -14,8 +14,8 @@ planets = DataFrame(name = ["Mercury", "Venus", "Earth", "Mars", "Jupiter", "Sat
                     radius = [0.383, 0.949, 1, 0.532, 11.21, 9.45, 4.01, 3.88])
 
 # Statistical details of the entire dataset
-describe(exoplanets)
-describe(planets)
+@show describe(exoplanets)
+@show describe(planets)
 
 # Meta Stuff
 ############
