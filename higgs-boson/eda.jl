@@ -50,7 +50,10 @@ missing_energy = plot(train, x = :PRI_met, color = :Label, Geom.histogram,
     Guide.colorkey(title = "Label", labels = ["Signal","Background"]),
     Guide.xlabel("Missing Transverse Energy"), Scale.x_log10)
 
-draw(SVGJS("missing-energy.svg", 6inch, 4inch), missing_energy)
+#draw(SVGJS("missing-energy.svg", 6inch, 4inch), missing_energy)
+
+# What role do jets play?
+plot(train, x = :PRI_jet_num, Geom.histogram)
 
 # Correlation coefficient heatmap for events without missing data
 correlations = cor(Matrix(dropmissing(train[:, 1:32])))
