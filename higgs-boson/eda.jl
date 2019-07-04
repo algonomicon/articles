@@ -1,49 +1,60 @@
-using CSV, DataFrames, Gadfly, Statistics
+using ColorSchemes, CSV, DataFrames, Gadfly, Statistics
 
 # Dataset downloaded from https://www.kaggle.com/c/higgs-boson/data
 train = CSV.read("higgs-boson/train.csv", missingstring = "-999.0")
+signal, background = groupby(train, :Label)
 
 # Dataset statistics
 describe(train)
+           
+# Locations of particles
+function cartesian(pt, ϕ, η)
+    x = pt * cos(ϕ)
+    y = pt * sin(ϕ)
+    z = pt * sinh(η)
 
-# Primitive values (Skipping jet fields that have many missing values)
-primitives = train[:, [:PRI_tau_pt, :PRI_tau_eta, :PRI_tau_phi,
-                       :PRI_lep_pt, :PRI_lep_eta, :PRI_lep_phi,
-                       :PRI_met, :PRI_met_phi, :PRI_met_sumet,
-                       :PRI_jet_num, :PRI_jet_all_pt]]
+    return (x, y, z)
+end
 
-# 3d plots with Makie
-#
-# function cartesian(label, pt, ϕ, η)
-#     x = pt * cos(ϕ)
-#     y = pt * sin(ϕ)
-#     z = pt * sinh(η)
+coordinates = DataFrame(x = [], y = [], z = [])
 
-#     return (label, x, y, z)
+for row in eachrow(train)
+    push!(coordinates, cartesian(row[:PRI_tau_pt], row[:PRI_tau_phi], row[:PRI_tau_eta]))
+    push!(coordinates, cartesian(row[:PRI_lep_pt], row[:PRI_lep_phi], row[:PRI_lep_eta]))
+end
+
+coordinate_density = plot(coordinates, x = :x, y = :y, Geom.density2d,
+    Scale.color_continuous(colormap = x->get(ColorSchemes.blackbody, x)))
+
+# draw(SVGJS("coordinate-density.svg", 6inch, 4inch), coordinate_density)
+
+# Makie 3d Alteranative (Not blog post quality but way better to visualize locally)
+
+# tau_coordinates = Point3f0[]
+# lep_coordinates = Point3f0[]
+
+# for row in eachrow(train)
+#     push!(tau_coordinates, cartesian(row[:PRI_tau_pt], row[:PRI_tau_phi], row[:PRI_tau_eta]))
+#     push!(lep_coordinates, cartesian(row[:PRI_lep_pt], row[:PRI_lep_phi], row[:PRI_lep_eta]))
 # end
 
-# coordinates = DataFrame(label=[], x = [], y = [], z = [])
+# scene = Scene(resolution = (1200, 800), backgroundcolor = "#222831")
+# scatter!(scene, tau_coordinates, markersize = 5, color = "#fe4365")
+# scatter!(scene, lep_coordinates, markersize = 5, color = "#eca25c")
 
-# for row in eachrow(primitives)
-#     push!(coordinates, cartesian(:circle, row[:PRI_tau_pt], row[:PRI_tau_phi], row[:PRI_tau_eta]))
-#     push!(coordinates, cartesian(:x, row[:PRI_lep_pt], row[:PRI_lep_phi], row[:PRI_lep_eta]))
-# end
+# save("coordinates.png", scene)
 
-# test_points = coordinates[:, 2:4]
-# test_points = [(row[1], row[2], row[3]) for row in eachrow(test_points)]
 
-# scene = Scene(resolution = (500, 500))
-# scatter!(scene, test_points, markersize=5)
+# How much energy is missing?
+missing_energy = plot(train, x = :PRI_met, color = :Label, Geom.histogram, 
+    Guide.colorkey(title = "Label", labels = ["Signal","Background"]),
+    Guide.xlabel("Missing Transverse Energy"), Scale.x_log10)
 
-# Derived values (Skipping fields that have many missing values)
-derived = train[:, [:DER_mass_vis, :DER_pt_h,
-                    :DER_deltar_tau_lep, :DER_pt_tot,
-                    :DER_sum_pt, :DER_pt_ratio_lep_tau, :DER_met_phi_centrality,
-                    :DER_mass_transverse_met_lep]]
+draw(SVGJS("missing-energy.svg", 6inch, 4inch), missing_energy)
 
-# Correlation coefficient heatmap
-correlations = cor(Matrix(hcat(primitives, derived)))
+# Correlation coefficient heatmap for events without missing data
+correlations = cor(Matrix(dropmissing(train[:, 1:32])))
 
-spy(correlations, Scale.y_discrete(labels = i->vcat(names(primitives), names(derived))[i]),
+spy(correlations, Scale.y_discrete(labels = i->names(train[:, 1:32])[i]),
     Guide.ylabel(nothing), Guide.colorkey(title = "Correlation\nCoefficient  "),
     Guide.xticks(label = false), Guide.xlabel(nothing))
