@@ -1,5 +1,7 @@
 using ColorSchemes, CSV, DataFrames, Gadfly, Statistics
 
+Gadfly.push_theme(:dark)
+
 # Dataset downloaded from https://www.kaggle.com/c/higgs-boson/data
 train = CSV.read("higgs-boson/train.csv", missingstring = "-999.0")
 describe(train)
@@ -23,6 +25,51 @@ working = deletecols(train, missingcols)
 # Signal/Background distributions
 signal, background = groupby(working, :Label)
 
+# Signal and Background boxplot stats
+function boxplot_stats(v)
+    q1 = quantile(v, 0.25)
+    q2 = quantile(v, 0.5)
+    q3 = quantile(v, 0.75)
+
+    lf = q1 - (1.5 * (q3 - q1))
+    uf = q3 + (1.5 * (q3 - q1))
+
+    return (lf, q1, q2, q3, uf)
+end
+
+combined_stats = DataFrame(name = [], label = [], lf = [], lh = [], m = [], uh = [], uf = [])
+
+for i in 1:20
+    stats = boxplot_stats(signal[:, i])
+    push!(combined_stats, [names(signal)[i], "s", stats...])
+
+    stats = boxplot_stats(background[:, i])
+    push!(combined_stats, [names(background)[i], "b", stats...])
+end
+
+plot(combined_stats, x = :name, lower_fence = :lf, lower_hinge = :lh, middle = :m, upper_hinge = :uh, upper_fence = :uf, color = :label, Stat.identity, Geom.boxplot,
+    Guide.xlabel(nothing), Guide.colorkey(labels = ["Signal", "Background"]), style(boxplot_spacing = -10px))
+
+# mean = plot(combined_stats, x = combined_stats[:variable], y = combined_stats[:mean], color = combined_stats[:label], Geom.boxplot, 
+#     Scale.color_discrete_manual("#FE4365", "#eca25c"),
+#     Guide.colorkey(labels=["Signal", "Background"]),
+#     Guide.xlabel(nothing), Guide.ylabel("Mean"))
+
+# median = plot(combined_stats, x = combined_stats[:variable], y = combined_stats[:median], color = combined_stats[:label], Geom.bar(position = :dodge),
+#     Scale.color_discrete_manual("#FE4365", "#eca25c"),
+#     Guide.colorkey(labels=["Signal", "Background"]),
+#     Guide.xlabel(nothing), Guide.ylabel("Median"))
+
+# min = plot(combined_stats, x = combined_stats[:variable], y = combined_stats[:min], color = combined_stats[:label], Geom.bar(position = :dodge),
+#     Scale.color_discrete_manual("#FE4365", "#eca25c"),
+#     Guide.colorkey(labels=["Signal", "Background"]),
+#     Guide.xlabel(nothing), Guide.ylabel("Min"))
+
+# max = plot(combined_stats, x = combined_stats[:variable], y = combined_stats[:max], color = combined_stats[:label], Geom.bar(position = :dodge),
+#     Scale.color_discrete_manual("#FE4365", "#eca25c"),
+#     Guide.colorkey(labels=["Signal", "Background"]),
+#     Guide.xlabel(nothing), Guide.ylabel("Max"))
+
 
 # Locations of particles
 function cartesian(pt, ϕ, η)
@@ -45,6 +92,29 @@ coordinate_density = plot(coordinates, x = :x, y = :y, Geom.density2d,
 
 # draw(SVGJS("coordinate-density.svg", 6inch, 4inch), coordinate_density)
 
+
+# How much energy is missing?
+missing_energy = plot(train, x = :PRI_met, color = :Label, Geom.histogram, 
+    Guide.colorkey(title = "Label", labels = ["Signal","Background"]),
+    Guide.xlabel("Missing Transverse Energy"), Scale.x_log10)
+
+#draw(SVGJS("missing-energy.svg", 6inch, 4inch), missing_energy)
+
+# What role do jets play?
+jet_groups = groupby(working, :PRI_jet_num)
+
+for group in jet_groups
+    @show describe(group)
+end
+
+# Correlation coefficient heatmap for events without missing data
+correlations = cor(Matrix(dropmissing(train[:, 1:32])))
+
+spy(correlations, Scale.y_discrete(labels = i->names(train[:, 1:32])[i]),
+    Guide.ylabel(nothing), Guide.colorkey(title = "Correlation\nCoefficient  "),
+    Guide.xticks(label = false), Guide.xlabel(nothing))
+
+
 ######################################
 
 # Makie 3d Plots
@@ -64,26 +134,3 @@ coordinate_density = plot(coordinates, x = :x, y = :y, Geom.density2d,
 # save("coordinates.png", scene)
 
 ######################################
-
-# How much energy is missing?
-missing_energy = plot(train, x = :PRI_met, color = :Label, Geom.histogram, 
-    Guide.colorkey(title = "Label", labels = ["Signal","Background"]),
-    Guide.xlabel("Missing Transverse Energy"), Scale.x_log10)
-
-#draw(SVGJS("missing-energy.svg", 6inch, 4inch), missing_energy)
-
-# What role do jets play?
-
-# Make groups based on number of jets
-jet_groups = groupby(working, :PRI_jet_num)
-
-for group in jet_groups
-    @show describe(group)
-end
-
-# Correlation coefficient heatmap for events without missing data
-correlations = cor(Matrix(dropmissing(train[:, 1:32])))
-
-spy(correlations, Scale.y_discrete(labels = i->names(train[:, 1:32])[i]),
-    Guide.ylabel(nothing), Guide.colorkey(title = "Correlation\nCoefficient  "),
-    Guide.xticks(label = false), Guide.xlabel(nothing))
