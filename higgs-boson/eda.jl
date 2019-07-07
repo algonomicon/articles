@@ -105,6 +105,18 @@ jet_plot = plot(stack(jet_df, [:num_s, :num_b]), x = :num_jets, y = :value, colo
 # Energy and Mass
 #################
 
+# Total energy by missing transverse energy
+energy = plot(working, x = :PRI_met_sumet, y = :PRI_met, Geom.histogram2d,
+    Scale.y_log10, Guide.xlabel("Total Transverse Energy"), Guide.ylabel("Missing Transverse Energy"))
+
+draw(SVGJS("transverse-energy.svg", 6inch, 4inch), energy)
+
+# Mass comparisons
+higgs_candidates = dropmissing(train, :DER_mass_MMC)
+
+invariant_mass = plot(higgs_candidates, x = :DER_mass_MMC, y = :DER_mass_vis, Geom.histogram2d, Guide.xlabel("Higgs Candidate Mass"), Guide.ylabel("Invariant Mass"))
+
+draw(SVGJS("higgs-invariant-mass.svg", 6inch, 4inch), invariant_mass)
 
 
 #######################
@@ -112,11 +124,13 @@ jet_plot = plot(stack(jet_df, [:num_s, :num_b]), x = :num_jets, y = :value, colo
 #######################
 
 # Correlation coefficient heatmap for events without missing data
-correlations = cor(Matrix(dropmissing(working[:, 1:20])))
+correlations = cor(Matrix(working[:, 1:20]))
 
-spy(correlations, Scale.y_discrete(labels = i->names(train[:, 1:32])[i]),
+corrrelation_plot = spy(correlations, Scale.y_discrete(labels = i->names(working[:, 1:20])[i]),
     Guide.ylabel(nothing), Guide.colorkey(title = "Correlation\nCoefficient  "),
     Guide.xticks(label = false), Guide.xlabel(nothing))
+
+# draw(SVGJS("correlations.svg", 6inch, 4inch), corrrelation_plot)
 
 
 ######################################
