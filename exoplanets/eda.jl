@@ -17,9 +17,6 @@ planets = DataFrame(name = ["Mercury", "Venus", "Earth", "Mars", "Jupiter", "Sat
 @show describe(exoplanets)
 @show describe(planets)
 
-# Meta Stuff
-############
-
 # How were planets discovered?
 discoveries = plot(dropmissing(exoplanets, [:pl_disc, :pl_discmethod]), x = :pl_disc, color = :pl_discmethod, Geom.line, Stat.histogram, 
      Scale.y_sqrt,
@@ -48,6 +45,7 @@ star_map = plot(layer(x = [0, 8121.9961554], y = [0, -7.90263480146], label = ["
 
 #draw(SVGJS("star-map.svg", 6inch, 4inch), star_map)
 
+########################
 # Planet Characteristics
 ########################
 
@@ -111,6 +109,7 @@ orbits = gridstack([semi_major_axis period; eccentricity inclination])
 # Do they have moons?
 exoplanets[exoplanets[:pl_mnum] .> 0, :pl_mnum] |> length
 
+#########################
 # Stellar Characteristics
 #########################
 
