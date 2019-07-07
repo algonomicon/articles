@@ -37,38 +37,21 @@ function boxplot_stats(v)
     return (lf, q1, q2, q3, uf)
 end
 
-combined_stats = DataFrame(name = [], label = [], lf = [], lh = [], m = [], uh = [], uf = [])
+# Construct combined dataframe by looping over columns
+sb_stats = DataFrame(name = [], label = [], lf = [], lh = [], m = [], uh = [], uf = [])
 
 for i in 1:20
     stats = boxplot_stats(signal[:, i])
-    push!(combined_stats, [names(signal)[i], "s", stats...])
+    push!(sb_stats, [names(signal)[i], "s", stats...])
 
     stats = boxplot_stats(background[:, i])
-    push!(combined_stats, [names(background)[i], "b", stats...])
+    push!(sb_stats, [names(background)[i], "b", stats...])
 end
 
-plot(combined_stats, x = :name, lower_fence = :lf, lower_hinge = :lh, middle = :m, upper_hinge = :uh, upper_fence = :uf, color = :label, Stat.identity, Geom.boxplot,
-    Guide.xlabel(nothing), Guide.colorkey(labels = ["Signal", "Background"]), style(boxplot_spacing = -10px))
+sb_plot = plot(sb_stats, x = :name, lower_fence = :lf, lower_hinge = :lh, middle = :m, upper_hinge = :uh, upper_fence = :uf, color = :label,
+    Stat.identity, Geom.boxplot, Guide.xlabel(nothing), style(boxplot_spacing = -10px), Guide.colorkey(title = "", labels = ["Signal", "Background"]))
 
-# mean = plot(combined_stats, x = combined_stats[:variable], y = combined_stats[:mean], color = combined_stats[:label], Geom.boxplot, 
-#     Scale.color_discrete_manual("#FE4365", "#eca25c"),
-#     Guide.colorkey(labels=["Signal", "Background"]),
-#     Guide.xlabel(nothing), Guide.ylabel("Mean"))
-
-# median = plot(combined_stats, x = combined_stats[:variable], y = combined_stats[:median], color = combined_stats[:label], Geom.bar(position = :dodge),
-#     Scale.color_discrete_manual("#FE4365", "#eca25c"),
-#     Guide.colorkey(labels=["Signal", "Background"]),
-#     Guide.xlabel(nothing), Guide.ylabel("Median"))
-
-# min = plot(combined_stats, x = combined_stats[:variable], y = combined_stats[:min], color = combined_stats[:label], Geom.bar(position = :dodge),
-#     Scale.color_discrete_manual("#FE4365", "#eca25c"),
-#     Guide.colorkey(labels=["Signal", "Background"]),
-#     Guide.xlabel(nothing), Guide.ylabel("Min"))
-
-# max = plot(combined_stats, x = combined_stats[:variable], y = combined_stats[:max], color = combined_stats[:label], Geom.bar(position = :dodge),
-#     Scale.color_discrete_manual("#FE4365", "#eca25c"),
-#     Guide.colorkey(labels=["Signal", "Background"]),
-#     Guide.xlabel(nothing), Guide.ylabel("Max"))
+# draw(SVGJS("sb-stats.svg", 6inch, 4inch), sb_plot)
 
 
 # Locations of particles
@@ -94,7 +77,7 @@ coordinate_density = plot(coordinates, x = :x, y = :y, Geom.density2d,
 
 
 # How much energy is missing?
-missing_energy = plot(train, x = :PRI_met, color = :Label, Geom.histogram, 
+missing_energy = plot(working, x = :PRI_met, color = :Label, Geom.histogram, 
     Guide.colorkey(title = "Label", labels = ["Signal","Background"]),
     Guide.xlabel("Missing Transverse Energy"), Scale.x_log10)
 
@@ -104,7 +87,7 @@ missing_energy = plot(train, x = :PRI_met, color = :Label, Geom.histogram,
 jet_groups = groupby(working, :PRI_jet_num)
 
 for group in jet_groups
-    @show describe(group)
+    println(count(group[:Label] .== "s") / count(group[:Label] .== "b"))
 end
 
 # Correlation coefficient heatmap for events without missing data
