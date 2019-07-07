@@ -22,10 +22,12 @@ missingcols = [:EventId,
 
 working = deletecols(train, missingcols)
 
+#################################
 # Signal/Background distributions
+#################################
+
 signal, background = groupby(working, :Label)
 
-# Signal and Background boxplot stats
 function boxplot_stats(v)
     q1 = quantile(v, 0.25)
     q2 = quantile(v, 0.5)
@@ -53,8 +55,10 @@ sb_plot = plot(sb_stats, x = :name, lower_fence = :lf, lower_hinge = :lh, middle
 
 # draw(SVGJS("sb-stats.svg", 6inch, 4inch), sb_plot)
 
-
+########################
 # Locations of particles
+########################
+
 function cartesian(pt, ϕ, η)
     x = pt * cos(ϕ)
     y = pt * sin(ϕ)
@@ -75,23 +79,40 @@ coordinate_density = plot(coordinates, x = :x, y = :y, Geom.density2d,
 
 # draw(SVGJS("coordinate-density.svg", 6inch, 4inch), coordinate_density)
 
-
-# How much energy is missing?
-missing_energy = plot(working, x = :PRI_met, color = :Label, Geom.histogram, 
-    Guide.colorkey(title = "Label", labels = ["Signal","Background"]),
-    Guide.xlabel("Missing Transverse Energy"), Scale.x_log10)
-
-#draw(SVGJS("missing-energy.svg", 6inch, 4inch), missing_energy)
-
+#########################
 # What role do jets play?
-jet_groups = groupby(working, :PRI_jet_num)
+#########################
+
+jet_groups = groupby(working, :PRI_jet_num, sort = true)
+jet_df = DataFrame(num_jets = [], num_s = [], num_b = [])
 
 for group in jet_groups
-    println(count(group[:Label] .== "s") / count(group[:Label] .== "b"))
+    num_jets = first(group[:PRI_jet_num])
+    num_s = count(group[:Label] .== "s")
+    num_b = count(group[:Label] .== "b")
+
+    push!(jet_df, (num_jets, num_s, num_b))
+
+    # Ratio of signal to background
+    println("$num_jets: $(num_s / num_b)")
 end
 
+jet_plot = plot(stack(jet_df, [:num_s, :num_b]), x = :num_jets, y = :value, color = :variable, Geom.bar(position = :dodge))
+
+# draw(SVGJS("num-jets.svg", 6inch, 4inch), jet_plot)
+
+#################
+# Energy and Mass
+#################
+
+
+
+#######################
+# Attribute Corrlations
+#######################
+
 # Correlation coefficient heatmap for events without missing data
-correlations = cor(Matrix(dropmissing(train[:, 1:32])))
+correlations = cor(Matrix(dropmissing(working[:, 1:20])))
 
 spy(correlations, Scale.y_discrete(labels = i->names(train[:, 1:32])[i]),
     Guide.ylabel(nothing), Guide.colorkey(title = "Correlation\nCoefficient  "),
