@@ -34,7 +34,8 @@ train_x[:ALGO_jet1_abs_eta] = abs_eta.(train_x[:PRI_jet_leading_phi])
 train_x[:ALGO_jet2_abs_eta] = abs_eta.(train_x[:PRI_jet_subleading_phi])
  
 # Drop phi due to invariant rotational symmetry
-tau_phi, lep_phi, met_phi, jet1_phi, jet2_phi
+delete!(train_x, [:PRI_tau_phi, :PRI_lep_phi, :PRI_met_phi, :PRI_jet_leading_phi, :PRI_jet_subleading_phi])
+
 
 ###############
 # Normalization
