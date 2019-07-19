@@ -12,26 +12,29 @@ test_x = test[:, 2:31]
 
 # Delta phi angles
 # Map to [-pi, pi]
-delta_phi_tau_lep
-delta_phi_tau_jet1
-delta_phi_tau_jet2
-delta_phi_lep_jet1
-delta_phi_lep_jet2
-delta_phi_jet1_jet2
 
-# Delta Eta angles
-delta_eta_tau_lep
-delta_eta_tau_jet1
-delta_eta_tau_jet2
-delta_eta_lep_jet1
-delta_eta_lep_jet2
-delta_eta_jet1_jet2
+# Take the difference of the angles in radians and return the difference between them [0, 2pi]
+# If angle is -999, the measurement doesn't exist, so return 0
+delta_phi(∠1, ∠2) = (∠1 == -999 || ∠2 == -999) ? 0 : rem2pi(abs(∠1 - ∠2), RoundNearest)
+
+train_x[:ALGO_delta_phi_tau_lep] = delta_phi.(train_x[:PRI_tau_phi], train_x[:PRI_lep_phi])
+train_x[:ALGO_delta_phi_tau_jet1] = delta_phi.(train_x[:PRI_tau_phi], train_x[:PRI_jet_leading_phi])
+train_x[:ALGO_delta_phi_tau_jet2] = delta_phi.(train_x[:PRI_tau_phi], train_x[:PRI_jet_subleading_phi])
+train_x[:ALGO_delta_phi_lep_jet1] = delta_phi.(train_x[:PRI_lep_phi], train_x[:PRI_jet_leading_phi])
+train_x[:ALGO_delta_phi_lep_jet2] = delta_phi.(train_x[:PRI_lep_phi], train_x[:PRI_jet_subleading_phi])
+train_x[:ALGO_delta_phi_jet1_jet2] = delta_phi.(train_x[:PRI_jet_leading_phi], train_x[:PRI_jet_subleading_phi])
+
+# Absolute values of eta
+
+abs_eta(∠) = ∠ == -999 ? 0 : abs(∠)
+
+train_x[:ALGO_tau_abs_eta] = abs_eta.(train_x[:PRI_tau_phi])
+train_x[:ALGO_lep_abs_eta] = abs_eta.(train_x[:PRI_lep_phi])
+train_x[:ALGO_jet1_abs_eta] = abs_eta.(train_x[:PRI_jet_leading_phi])
+train_x[:ALGO_jet2_abs_eta] = abs_eta.(train_x[:PRI_jet_subleading_phi])
  
 # Drop phi due to invariant rotational symmetry
 tau_phi, lep_phi, met_phi, jet1_phi, jet2_phi
-
-# Take absolute values of eta
-tau_eta, lep_eta, jet1_eta, jet2_eta
 
 ###############
 # Normalization
