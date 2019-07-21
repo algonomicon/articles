@@ -1,21 +1,36 @@
-using CSV, DataFrames, XGBoost
+using CSV, DataFrames, Statistics, XGBoost
 
 train = CSV.read("higgs-boson/train.csv")
 test = CSV.read("higgs-boson/test.csv")
 
-train_x, train_y = train[:, 2:31], map(i->i == "s" ? 1 : 0, train[:Label])
+train_x, train_y, train_w = train[:, 2:31], map(i->i == "s" ? 1 : 0, train[:Label]), train[:Weight]
 test_x = test[:, 2:31]
+
+###############################
+# OG Model (Baseline benchmark)
+###############################
+
+rounds = 500
+
+og_model = xgboost(
+  convert(Matrix, train_x),
+  rounds, 
+  label=train_y, 
+  max_depth=9, 
+  eta=0.1, 
+  sub_sample=0.9,  
+  objective="binary:logistic", 
+  metrics=["auc"]
+)
+
+og_predictions = predict(og_model, train_x)
 
 #################################
 # Feature Selection + Engineering
 #################################
 
-# Delta phi angles
-# Map to [-pi, pi]
-
-# Take the difference of the angles in radians and return the difference between them [0, 2pi]
-# If angle is -999, the measurement doesn't exist, so return 0
-delta_phi(∠1, ∠2) = (∠1 == -999 || ∠2 == -999) ? 0 : rem2pi(abs(∠1 - ∠2), RoundNearest)
+# Absolute differences of phi mapped to [-pi, pi]
+delta_phi(ϕ1, ϕ2) = (ϕ1 == -999 || ϕ2 == -999) ? 0 : rem2pi(abs(ϕ1 - ϕ2), RoundNearest)
 
 train_x[:ALGO_delta_phi_tau_lep] = delta_phi.(train_x[:PRI_tau_phi], train_x[:PRI_lep_phi])
 train_x[:ALGO_delta_phi_tau_jet1] = delta_phi.(train_x[:PRI_tau_phi], train_x[:PRI_jet_leading_phi])
@@ -24,40 +39,78 @@ train_x[:ALGO_delta_phi_lep_jet1] = delta_phi.(train_x[:PRI_lep_phi], train_x[:P
 train_x[:ALGO_delta_phi_lep_jet2] = delta_phi.(train_x[:PRI_lep_phi], train_x[:PRI_jet_subleading_phi])
 train_x[:ALGO_delta_phi_jet1_jet2] = delta_phi.(train_x[:PRI_jet_leading_phi], train_x[:PRI_jet_subleading_phi])
 
-# Absolute values of eta
+# Absolute differences of eta
+delta_eta(η1, η2) = (η1 == -999 || η2 == -999) ? 0 : abs(η1 - η2)
 
-abs_eta(∠) = ∠ == -999 ? 0 : abs(∠)
-
-train_x[:ALGO_tau_abs_eta] = abs_eta.(train_x[:PRI_tau_phi])
-train_x[:ALGO_lep_abs_eta] = abs_eta.(train_x[:PRI_lep_phi])
-train_x[:ALGO_jet1_abs_eta] = abs_eta.(train_x[:PRI_jet_leading_phi])
-train_x[:ALGO_jet2_abs_eta] = abs_eta.(train_x[:PRI_jet_subleading_phi])
+train_x[:ALGO_delta_eta_tau_lep] = delta_eta.(train_x[:PRI_tau_eta], train_x[:PRI_lep_eta])
+train_x[:ALGO_delta_eta_tau_jet1] = delta_eta.(train_x[:PRI_tau_eta], train_x[:PRI_jet_leading_eta])
+train_x[:ALGO_delta_eta_tau_jet2] = delta_eta.(train_x[:PRI_tau_eta], train_x[:PRI_jet_subleading_eta])
+train_x[:ALGO_delta_eta_lep_jet1] = delta_eta.(train_x[:PRI_lep_eta], train_x[:PRI_jet_leading_eta])
+train_x[:ALGO_delta_eta_lep_jet2] = delta_eta.(train_x[:PRI_lep_eta], train_x[:PRI_jet_subleading_eta])
+train_x[:ALGO_delta_eta_jet1_jet2] = delta_eta.(train_x[:PRI_jet_leading_eta], train_x[:PRI_jet_subleading_eta])
  
 # Drop phi due to invariant rotational symmetry
-delete!(train_x, [:PRI_tau_phi, :PRI_lep_phi, :PRI_met_phi, :PRI_jet_leading_phi, :PRI_jet_subleading_phi])
+train_x = delete(train_x, [:PRI_tau_phi, :PRI_lep_phi, :PRI_met_phi, :PRI_jet_leading_phi, :PRI_jet_subleading_phi])
 
+# Change all missing instances of -999 to 0
+# Borrowing this technique from Gabor Melis (first place finisher)
+# http://proceedings.mlr.press/v42/meli14.pdf
+train_x = mapcols(col -> replace(col, -999 => 0), train_x)
 
 ###############
 # Normalization
 ###############
 
-# Center everything around mean of 0 and std dev of 1
+# Mean centered at 0 with a standard deviation of 1
+function normalize(xs)
+  μ = mean(xs)
+  σ = std(xs)
+  return map(x -> ((x - μ) / σ), xs)
+end
 
-###################
-# Raw Feature Model
-###################
+train_x = mapcols(col -> normalize(col), train_x)
 
-# rounds = 2
-# model = xgboost(convert(Matrix, train_x), rounds, label = train_y, eta = 1, max_depth = 2)
-# predictions = predict(model, train_x)
+##########
+# Training
+##########
 
-# Test error
-# rmse or ams (higgs eval metric)
+rounds = 500
 
-# Cross validation
-# nfolds = 5
-# params = Dict("max_depth" => 2, 
-#               "eta" => 1,
-#               "objective" => "binary:logistic")
+model = xgboost(
+  convert(Matrix, train_x),
+  rounds, 
+  label=train_y, 
+  max_depth=9, 
+  eta=0.1, 
+  sub_sample=0.9,  
+  objective="binary:logistic", 
+  metrics=["auc"]
+)
 
-# folded_model = nfold_cv(train_x, rounds, label = train_y, param = params, metrics = ["auc"])
+#########
+# Testing
+#########
+
+predictions = predict(model, convert(Matrix, train_x))
+
+# Approximate Median Significance Metric
+ams(s, b) = sqrt(2 * ((s + b + 10) * log(1 + (s / (b + 10))) - s))
+
+# Function to calculate score
+function score(predictions, labels, weights)
+  threshold = 0.5
+  s = 0
+  b = 0
+
+  for i = 1:length(predictions)
+    # Only events predicted to be signal are counted
+    if predictions[i] > threshold
+      (labels[i] == 1) ? (s += weights[i]) : (b += weights[i])
+    end
+  end
+
+  return ams(s, b)
+end
+
+println("AMS: ", score(og_predictions, train_y, train_w))
+println("AMS: ", score(predictions, train_y, train_w))
