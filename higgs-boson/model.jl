@@ -3,14 +3,14 @@ using CSV, DataFrames, Statistics, XGBoost
 train = CSV.read("higgs-boson/train.csv")
 test = CSV.read("higgs-boson/test.csv")
 
-train_x, train_y, train_w = train[:, 2:31], map(i->i == "s" ? 1 : 0, train[:Label]), train[:Weight]
+train_x, train_y, train_w = train[:, 2:31], map(i -> i == "s" ? 1 : 0, train[:Label]), train[:Weight]
 test_x = test[:, 2:31]
 
 ###############################
 # OG Model (Baseline benchmark)
 ###############################
 
-rounds = 500
+rounds = 1000
 
 og_model = xgboost(
   convert(Matrix, train_x),
@@ -23,7 +23,7 @@ og_model = xgboost(
   metrics=["auc"]
 )
 
-og_predictions = predict(og_model, train_x)
+og_predictions = predict(og_model, convert(Matrix, train_x))
 
 #################################
 # Feature Selection + Engineering
@@ -50,7 +50,7 @@ train_x[:ALGO_delta_eta_lep_jet2] = delta_eta.(train_x[:PRI_lep_eta], train_x[:P
 train_x[:ALGO_delta_eta_jet1_jet2] = delta_eta.(train_x[:PRI_jet_leading_eta], train_x[:PRI_jet_subleading_eta])
  
 # Drop phi due to invariant rotational symmetry
-train_x = delete(train_x, [:PRI_tau_phi, :PRI_lep_phi, :PRI_met_phi, :PRI_jet_leading_phi, :PRI_jet_subleading_phi])
+train_x = deletecols(train_x, [:PRI_tau_phi, :PRI_lep_phi, :PRI_met_phi, :PRI_jet_leading_phi, :PRI_jet_subleading_phi])
 
 # Change all missing instances of -999 to 0
 # Borrowing this technique from Gabor Melis (first place finisher)
@@ -74,7 +74,7 @@ train_x = mapcols(col -> normalize(col), train_x)
 # Training
 ##########
 
-rounds = 500
+rounds = 1000
 
 model = xgboost(
   convert(Matrix, train_x),
@@ -87,16 +87,13 @@ model = xgboost(
   metrics=["auc"]
 )
 
-#########
-# Testing
-#########
-
 predictions = predict(model, convert(Matrix, train_x))
 
-# Approximate Median Significance Metric
-ams(s, b) = sqrt(2 * ((s + b + 10) * log(1 + (s / (b + 10))) - s))
+#############################
+# Baseline Comparison Testing
+#############################
 
-# Function to calculate score
+# Function to calculate approximate median significance (AMS)
 function score(predictions, labels, weights)
   threshold = 0.5
   s = 0
@@ -109,8 +106,33 @@ function score(predictions, labels, weights)
     end
   end
 
-  return ams(s, b)
+  return sqrt(2 * ((s + b + 10) * log(1 + (s / (b + 10))) - s))
 end
 
 println("AMS: ", score(og_predictions, train_y, train_w))
 println("AMS: ", score(predictions, train_y, train_w))
+
+#############
+# Final Model
+#############
+
+rounds = 3000
+
+final_model = xgboost(
+  convert(Matrix, train_x),
+  rounds, 
+  label=train_y, 
+  max_depth=9, 
+  eta=0.1, 
+  sub_sample=0.9,  
+  objective="binary:logistic", 
+  metrics=["auc"]
+)
+
+final_predictions = predict(model, convert(Matrix, test_x))
+
+#################
+# Submission file
+#################
+
+submission = Dict()
