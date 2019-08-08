@@ -1,24 +1,26 @@
-using ColorSchemes, CSV, DataFrames, Gadfly, Statistics
+using ColorSchemes, CSV, DataFrames, Gadfly, Makie, Statistics
 
 Gadfly.push_theme(:dark)
 
 # Dataset downloaded from https://www.kaggle.com/c/higgs-boson/data
-train = CSV.read("higgs-boson/train.csv", missingstring = "-999.0")
+train = CSV.read("higgs-boson/train.csv")
 describe(train)
 
 # Working dataframe with extraneous columns removed
-missingcols = [:EventId,
-               :DER_mass_MMC,
-               :DER_deltaeta_jet_jet,
-               :DER_mass_jet_jet,
-               :DER_prodeta_jet_jet,
-               :DER_lep_eta_centrality,
-               :PRI_jet_leading_pt,
-               :PRI_jet_leading_eta,
-               :PRI_jet_leading_phi,
-               :PRI_jet_subleading_pt,
-               :PRI_jet_subleading_eta,
-               :PRI_jet_subleading_phi]
+missingcols = [
+    :EventId,
+    :DER_mass_MMC,
+    :DER_deltaeta_jet_jet,
+    :DER_mass_jet_jet,
+    :DER_prodeta_jet_jet,
+    :DER_lep_eta_centrality,
+    :PRI_jet_leading_pt,
+    :PRI_jet_leading_eta,
+    :PRI_jet_leading_phi,
+    :PRI_jet_subleading_pt,
+    :PRI_jet_subleading_eta,
+    :PRI_jet_subleading_phi
+]
 
 working = deletecols(train, missingcols)
 
@@ -64,7 +66,7 @@ function cartesian(pt, ϕ, η)
     y = pt * sin(ϕ)
     z = pt * sinh(η)
 
-    return (x, y, z)
+    return (z, y, x)
 end
 
 coordinates = DataFrame(x = [], y = [], z = [])
@@ -137,17 +139,27 @@ corrrelation_plot = spy(correlations, Scale.y_discrete(labels = i->names(working
 
 # Makie 3d Plots
 
-# tau_coordinates = Point3f0[]
-# lep_coordinates = Point3f0[]
+tau_coordinates = Point3f0[]
+lep_coordinates = Point3f0[]
 
-# for row in eachrow(train)
-#     push!(tau_coordinates, cartesian(row[:PRI_tau_pt], row[:PRI_tau_phi], row[:PRI_tau_eta]))
-#     push!(lep_coordinates, cartesian(row[:PRI_lep_pt], row[:PRI_lep_phi], row[:PRI_lep_eta]))
-# end
+for row in eachrow(train)
+    push!(tau_coordinates, cartesian(row[:PRI_tau_pt], row[:PRI_tau_phi], row[:PRI_tau_eta]))
+    push!(lep_coordinates, cartesian(row[:PRI_lep_pt], row[:PRI_lep_phi], row[:PRI_lep_eta]))
+end
 
-# scene = Scene(resolution = (1200, 800), backgroundcolor = "#222831")
-# scatter!(scene, tau_coordinates, markersize = 5, color = "#fe4365")
-# scatter!(scene, lep_coordinates, markersize = 5, color = "#eca25c")
+scene = Scene(resolution = (1200, 800), backgroundcolor = "#222831")
+scatter!(scene, tau_coordinates, markersize = 5, color = "#fe4365")
+scatter!(scene, lep_coordinates, markersize = 5, color = "#eca25c")
+
+scale!(scene, 2, 2, 2)
+scene.center = false
+
+axis = scene[Axis]
+axis[:names][:axisnames] = ("z", "y", "x")
+
+record(scene, "output.mp4", 1:200) do i
+    rotate_cam!(scene, 0.01, 0.0, 0.0)
+end
 
 # save("coordinates.png", scene)
 
